@@ -83,7 +83,7 @@ class WebAPI
       else
         sock = TCPSocket.open @url.host, @url.port
       end
-    else
+    elsif @url.scheme == "https"
       tlsopts = { :port => @url.port }
       tlsopts[:certs] = @opts[:certs]
       tlsopts[:identity] = @url.host
@@ -105,6 +105,8 @@ class WebAPI
         tls = TLS.new @url.host, tlsopts
       end
       sock = tls
+    else
+      sock = UNIXSocket.open @url.host
     end
 
     sock.write req
@@ -272,33 +274,38 @@ class WebAPI
       scheme, str = str.split("://", 2)
       @scheme = scheme.downcase
 
-      @authority, path = str.split("/", 2)
-
-      # userinfo is not supported
-      #userinfo, host = authority.split("@", 2)
-
-      @host, @port = @authority.split(":", 2)
-      unless @port
-        # default port number is defined for each scheme
-        @port = @@defaultports[@scheme]
-        raise InvalidURIError, "port must be specified" unless @port
-      end
-
-      unless host
-        host = userinfo
-        userinfo = nil
-      end
-      
-      if @authority.include? "@"
-      else
-        @userinfo = nil
-      end
-
-      # path == nil : without leading /
-      if path == nil
+      if @scheme == "unix"
+        @host = str
         @path = ""
       else
-        @path = "/" + path
+        @authority, path = str.split("/", 2)
+
+        # userinfo is not supported
+        #userinfo, host = authority.split("@", 2)
+
+        @host, @port = @authority.split(":", 2)
+        unless @port
+          # default port number is defined for each scheme
+          @port = @@defaultports[@scheme]
+          raise InvalidURIError, "port must be specified" unless @port
+        end
+
+        unless host
+          host = userinfo
+          userinfo = nil
+        end
+
+        if @authority.include? "@"
+        else
+          @userinfo = nil
+        end
+
+        # path == nil : without leading /
+        if path == nil
+          @path = ""
+        else
+          @path = "/" + path
+        end
       end
     end
   end
